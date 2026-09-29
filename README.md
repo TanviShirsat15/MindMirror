@@ -9,7 +9,33 @@ MindMirror is a secure, web-based personal self-reflection and behavioral analyt
 MindMirror development follows a structured, sequential phased implementation plan:
 
 - **Phase 0**: Project Specification & Source of Truth
-- **Phase 1**: Development Environment & GitHub Setup *(Current Phase)*
-- **Phase 2+**: Frontend & Backend Scaffolding, Core Models, and Feature Modules
+- **Phase 1**: Development Environment & GitHub Setup *(Completed)*
+- **Phase 2**: Project Architecture & Foundation *(Completed)*
+- **Phase 3+**: Core Models, Authentication, and Feature Modules
 
 Full documentation is tracked within the [`docs/`](./docs) directory.
+
+---
+
+## Development & Startup Commands
+
+Run the backend and frontend in separate terminals during development:
+
+### Backend
+
+```powershell
+cd backend
+venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --port 8000
+```
+
+The backend health check is accessible at `http://localhost:8000/api/health`.
+
+### Frontend
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Visiting the frontend development server at `http://localhost:5173` will display the health-check placeholder and confirm live connectivity with the backend and MySQL database.
