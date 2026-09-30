@@ -1,64 +1,94 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { Lock, UserPlus } from 'lucide-react'
+
+import Button from '../../components/ui/Button'
+import Card from '../../components/ui/Card'
+import Input from '../../components/ui/Input'
 
 export default function SignUpPage() {
+  const navigate = useNavigate()
+
+  const handleDemoSignup = () => {
+    navigate('/dashboard')
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-800">Create your account</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Already have an account?{' '}
-          <Link to="/login" className="text-teal-600 hover:text-teal-700 font-medium">
-            Sign in
-          </Link>
+        <p className="text-sm font-medium text-slate-500">
+          Get started
+        </p>
+
+        <h2 className="mt-1 text-2xl font-bold text-slate-800">
+          Create your MindMirror account
+        </h2>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Set up your personal space for journals, habits, and
+          self-reflection.
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="signup-name">
-            Full name
-          </label>
-          <input
-            id="signup-name"
+      {/* Sign Up Form */}
+      <Card>
+        <div className="space-y-5">
+          <Input
+            label="Full name"
             type="text"
-            disabled
-            placeholder="Jane Doe"
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-500"
+            placeholder="Your name"
+            autoComplete="name"
           />
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="signup-email">
-            Email address
-          </label>
-          <input
-            id="signup-email"
+          <Input
+            label="Email address"
             type="email"
-            disabled
-            placeholder="jane@example.com"
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-500"
+            placeholder="you@example.com"
+            autoComplete="email"
           />
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="signup-password">
-            Password
-          </label>
-          <input
-            id="signup-password"
+          <Input
+            label="Password"
             type="password"
-            disabled
-            placeholder="••••••••"
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-500"
+            placeholder="Create a password"
+            autoComplete="new-password"
           />
-        </div>
 
+          <Button
+            type="button"
+            className="w-full"
+            onClick={handleDemoSignup}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Create Demo Account
+          </Button>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs leading-5 text-slate-500">
+              Demo mode: account creation, password hashing, and secure
+              authentication will be implemented in later phases.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Login */}
+      <p className="text-center text-sm text-slate-500">
+        Already have an account?{' '}
         <Link
-          to="/dashboard"
-          className="w-full inline-flex justify-center items-center py-2.5 px-4 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm transition-colors"
+          to="/login"
+          className="font-medium text-slate-700 underline decoration-slate-300 underline-offset-4 hover:text-slate-900"
         >
-          Create Demo Account
+          Sign in
         </Link>
+      </p>
+
+      {/* Security note */}
+      <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+        <Lock className="h-3.5 w-3.5" />
+        <span>
+          Secure authentication will be added in a later phase.
+        </span>
       </div>
     </div>
   )
