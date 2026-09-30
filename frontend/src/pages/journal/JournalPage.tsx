@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, CalendarDays, PenLine } from 'lucide-react'
+import { BookOpen, CalendarDays, Check, PenLine } from 'lucide-react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -12,6 +12,7 @@ import { journalEntries } from '../../mock/journalData'
 export default function JournalPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [savedMessage, setSavedMessage] = useState('')
 
   const handleSave = () => {
     if (!content.trim()) {
@@ -20,6 +21,11 @@ export default function JournalPage() {
 
     setTitle('')
     setContent('')
+    setSavedMessage('Journal entry saved')
+
+    window.setTimeout(() => {
+      setSavedMessage('')
+    }, 2000)
   }
 
   return (
@@ -39,6 +45,17 @@ export default function JournalPage() {
           anything you want to reflect on.
         </p>
       </div>
+
+      {/* Success Feedback */}
+      {savedMessage && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
+          <Check className="h-4 w-4 text-slate-500" />
+          {savedMessage}
+        </div>
+      )}
 
       {/* Composer */}
       <Card

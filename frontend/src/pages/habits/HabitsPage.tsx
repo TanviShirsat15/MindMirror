@@ -7,15 +7,20 @@ import Card from '../../components/ui/Card'
 import EmptyState from '../../components/ui/EmptyState'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
-import { habits as initialHabits, habitLogs } from '../../mock/habitData'
-import type { Habit } from '../../types/habit'
+import {
+  habits as initialHabits,
+  habitLogs as initialHabitLogs,
+} from '../../mock/habitData'
+import type { Habit, HabitLog } from '../../types/habit'
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>(initialHabits)
+  const [logs, setLogs] = useState<HabitLog[]>(initialHabitLogs)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [name, setName] = useState('')
   const [targetPerWeek, setTargetPerWeek] = useState('3')
+  const [savedMessage, setSavedMessage] = useState('')
 
   const openAddModal = () => {
     setEditingHabit(null)
@@ -51,6 +56,8 @@ export default function HabitsPage() {
             : habit,
         ),
       )
+
+      setSavedMessage('Habit updated')
     } else {
       const newHabit: Habit = {
         id: `demo-habit-${Date.now()}`,
@@ -61,9 +68,14 @@ export default function HabitsPage() {
       }
 
       setHabits((currentHabits) => [...currentHabits, newHabit])
+      setSavedMessage('Habit added')
     }
 
     setIsModalOpen(false)
+
+    window.setTimeout(() => {
+      setSavedMessage('')
+    }, 2000)
   }
 
   const handleDeactivate = (habitId: string) => {
@@ -74,9 +86,52 @@ export default function HabitsPage() {
           : habit,
       ),
     )
+
+    setSavedMessage('Habit deactivated')
+
+    window.setTimeout(() => {
+      setSavedMessage('')
+    }, 2000)
+  }
+
+  const toggleCompletion = (habitId: string, date: string) => {
+    setLogs((currentLogs) => {
+      const existingLog = currentLogs.find(
+        (log) => log.habitId === habitId && log.date === date,
+      )
+
+      if (existingLog) {
+        return currentLogs.map((log) =>
+          log.id === existingLog.id
+            ? {
+                ...log,
+                completed: !log.completed,
+              }
+            : log,
+        )
+      }
+
+      return [
+        ...currentLogs,
+        {
+          id: `demo-log-${Date.now()}`,
+          habitId,
+          date,
+          completed: true,
+        },
+      ]
+    })
   }
 
   const activeHabits = habits.filter((habit) => habit.isActive)
+
+  const completedCount = logs.filter(
+    (log) => log.completed,
+  ).length
+
+  const trackedDays = new Set(
+    logs.map((log) => log.date),
+  ).size
 
   return (
     <div className="space-y-6">
@@ -102,10 +157,22 @@ export default function HabitsPage() {
         </Button>
       </div>
 
+      {/* Feedback */}
+      {savedMessage && (
+        <div
+          role="status"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
+          {savedMessage}
+        </div>
+      )}
+
       {/* Habit Summary */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-sm text-slate-500">Active habits</p>
+          <p className="text-sm text-slate-500">
+            Active habits
+          </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-800">
             {activeHabits.length}
@@ -118,7 +185,7 @@ export default function HabitsPage() {
           </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-800">
-            {habitLogs.filter((log) => log.completed).length}
+            {completedCount}
           </p>
         </Card>
 
@@ -128,7 +195,7 @@ export default function HabitsPage() {
           </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-800">
-            {new Set(habitLogs.map((log) => log.date)).size}
+            {trackedDays}
           </p>
         </Card>
       </div>
@@ -152,18 +219,22 @@ export default function HabitsPage() {
         ) : (
           <div className="space-y-4">
             {activeHabits.map((habit) => {
-              const logs = habitLogs.filter(
+              const habitLogs = logs.filter(
                 (log) => log.habitId === habit.id,
               )
 
-              const completed = logs.filter(
+              const completed = habitLogs.filter(
                 (log) => log.completed,
               ).length
 
               const completionRate =
-                logs.length > 0
-                  ? Math.round((completed / logs.length) * 100)
+                habitLogs.length > 0
+                  ? Math.round(
+                      (completed / habitLogs.length) * 100,
+                    )
                   : 0
+
+              const recentLogs = habitLogs.slice(-7)
 
               return (
                 <div
@@ -218,37 +289,61 @@ export default function HabitsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-7 gap-2">
-                    {logs.slice(-7).map((log) => (
-                      <div
-                        key={log.id}
-                        className="flex flex-col items-center gap-1"
-                      >
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                            log.completed
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-slate-100 text-slate-400'
-                          }`}
-                          title={log.date}
-                        >
-                          {log.completed ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <span className="text-xs">–</span>
-                          )}
-                        </div>
+                  {/* Completion Tracking */}
+                  <div className="mt-4">
+                    <p className="mb-2 text-xs font-medium text-slate-500">
+                      Recent completion
+                    </p>
 
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(log.date).toLocaleDateString(
-                            'en-IN',
-                            {
-                              day: 'numeric',
-                            },
-                          )}
-                        </span>
-                      </div>
-                    ))}
+                    <div className="grid grid-cols-7 gap-2">
+                      {recentLogs.map((log) => (
+                        <button
+                          key={log.id}
+                          type="button"
+                          onClick={() =>
+                            toggleCompletion(
+                              habit.id,
+                              log.date,
+                            )
+                          }
+                          aria-label={`${log.completed ? 'Undo' : 'Mark'} ${habit.name} for ${log.date}`}
+                          aria-pressed={log.completed}
+                          className="flex flex-col items-center gap-1 rounded-lg p-1 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        >
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                              log.completed
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-100 text-slate-400'
+                            }`}
+                          >
+                            {log.completed ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <span className="text-xs">
+                                –
+                              </span>
+                            )}
+                          </span>
+
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(
+                              log.date,
+                            ).toLocaleDateString(
+                              'en-IN',
+                              {
+                                day: 'numeric',
+                              },
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      Click a day to mark it complete or undo the
+                      completion.
+                    </p>
                   </div>
                 </div>
               )

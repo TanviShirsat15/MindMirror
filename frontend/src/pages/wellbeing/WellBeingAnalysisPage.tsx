@@ -261,7 +261,14 @@ function SignalCard({
         <Badge variant="default">Signal</Badge>
       </div>
 
-      <div className="mt-3 h-2 rounded-full bg-slate-100">
+      <div
+        className="mt-3 h-2 rounded-full bg-slate-100"
+        role="progressbar"
+        aria-label={`${label} signal`}
+        aria-valuenow={percentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div
           className="h-2 rounded-full bg-slate-600"
           style={{ width: `${percentage}%` }}

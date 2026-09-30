@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+
 import {
   Activity,
   ArrowUpRight,
@@ -9,6 +11,7 @@ import {
   PenLine,
   Target,
 } from 'lucide-react'
+
 import {
   Line,
   LineChart,
@@ -19,7 +22,6 @@ import {
 } from 'recharts'
 
 import Badge from '../../components/ui/Badge'
-import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import ChartContainer from '../../components/ui/ChartContainer'
 import { analyticsData } from '../../mock/analyticsData'
@@ -87,15 +89,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary">
+          <Link
+            to="/journal"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+          >
             <PenLine className="mr-2 h-4 w-4" />
             Write Journal
-          </Button>
+          </Link>
 
-          <Button>
+          <Link
+            to="/habits"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+          >
             <Target className="mr-2 h-4 w-4" />
             View Habits
-          </Button>
+          </Link>
         </div>
       </div>
 
@@ -103,7 +111,6 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <Activity className="h-4 w-4 text-slate-400" />
-
           <span>System status</span>
         </div>
 
@@ -345,7 +352,10 @@ export default function DashboardPage() {
                 </span>
 
                 <span className="text-sm font-semibold text-slate-800">
-                  {Math.round(latestAnalytics.habitConsistency * 100)}%
+                  {Math.round(
+                    latestAnalytics.habitConsistency * 100,
+                  )}
+                  %
                 </span>
               </div>
 
@@ -393,7 +403,8 @@ export default function DashboardPage() {
 
                   <Badge
                     variant={
-                      completed >= Math.ceil(habit.targetPerWeek / 2)
+                      completed >=
+                      Math.ceil(habit.targetPerWeek / 2)
                         ? 'success'
                         : 'warning'
                     }
@@ -432,12 +443,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            className="mt-4"
+          <Link
+            to="/insights"
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-transparent px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
           >
             View all insights
-          </Button>
+          </Link>
         </Card>
       </div>
     </div>
