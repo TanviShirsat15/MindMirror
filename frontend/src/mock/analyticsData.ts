@@ -1,0 +1,60 @@
+import type { AnalyticsPoint } from '../types/analytics'
+
+export const analyticsData: AnalyticsPoint[] = [
+  {
+    date: '2026-09-24',
+    score: 65,
+    baseline: 69,
+    habitConsistency: 0.58,
+    sentiment: 0.52,
+    stress: 0.42,
+  },
+  {
+    date: '2026-09-25',
+    score: 67,
+    baseline: 69,
+    habitConsistency: 0.61,
+    sentiment: 0.55,
+    stress: 0.40,
+  },
+  {
+    date: '2026-09-26',
+    score: 68,
+    baseline: 70,
+    habitConsistency: 0.65,
+    sentiment: 0.58,
+    stress: 0.38,
+  },
+  {
+    date: '2026-09-27',
+    score: 72,
+    baseline: 70,
+    habitConsistency: 0.72,
+    sentiment: 0.64,
+    stress: 0.31,
+  },
+  {
+    date: '2026-09-28',
+    score: 75,
+    baseline: 71,
+    habitConsistency: 0.78,
+    sentiment: 0.69,
+    stress: 0.27,
+  },
+  {
+    date: '2026-09-29',
+    score: 70,
+    baseline: 71,
+    habitConsistency: 0.70,
+    sentiment: 0.61,
+    stress: 0.35,
+  },
+  {
+    date: '2026-09-30',
+    score: 76,
+    baseline: 71,
+    habitConsistency: 0.81,
+    sentiment: 0.72,
+    stress: 0.24,
+  },
+]
