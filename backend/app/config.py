@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = ""
     APP_ENV: str = "development"
     FRONTEND_URL: str = "http://localhost:5173"
+    JWT_SECRET: str = ""
+    JWT_EXPIRE_MINUTES: int = 60
 
     @property
     def database_url(self) -> str:

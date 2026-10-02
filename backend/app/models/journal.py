@@ -26,9 +26,8 @@ class Journal(Base):
     )
 
     entry_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-        server_default=func.current_date(),
+    Date,
+    nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
