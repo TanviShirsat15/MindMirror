@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Numeric, SmallInteger, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, SmallInteger, UniqueConstraint
 
 from app.database import Base
 
@@ -62,4 +63,9 @@ class WellBeingScore(Base):
             "score >= 1 AND score <= 100",
             name="ck_wellbeing_scores_score_range",
         ),
+        UniqueConstraint(
+    "user_id",
+    "score_date",
+    name="uq_wellbeing_scores_user_date",
+),
     )

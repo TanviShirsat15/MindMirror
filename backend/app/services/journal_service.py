@@ -1,0 +1,130 @@
+from datetime import date
+
+from sqlalchemy.orm import Session
+
+from app.models.journal import Journal
+from app.models.journal_analysis import JournalAnalysis
+from app.models.user import User
+from app.schemas.journal import JournalCreate, JournalUpdate
+
+
+def create_journal(
+    db: Session,
+    current_user: User,
+    journal_data: JournalCreate,
+) -> Journal:
+    entry_date = journal_data.entry_date or date.today()
+
+    journal = Journal(
+        user_id=current_user.id,
+        content=journal_data.content,
+        entry_date=entry_date,
+    )
+
+    db.add(journal)
+    db.commit()
+    db.refresh(journal)
+
+    return journal
+
+
+def list_journals(
+    db: Session,
+    current_user: User,
+    entry_date: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[Journal]:
+    query = db.query(Journal).filter(
+        Journal.user_id == current_user.id
+    )
+
+    if entry_date is not None:
+        query = query.filter(Journal.entry_date == entry_date)
+
+    if start_date is not None:
+        query = query.filter(Journal.entry_date >= start_date)
+
+    if end_date is not None:
+        query = query.filter(Journal.entry_date <= end_date)
+
+    return query.order_by(
+        Journal.entry_date.desc(),
+        Journal.id.desc(),
+    ).all()
+
+
+def get_journal(
+    db: Session,
+    current_user: User,
+    journal_id: int,
+) -> Journal:
+    journal = db.query(Journal).filter(
+        Journal.id == journal_id,
+        Journal.user_id == current_user.id,
+    ).first()
+
+    if journal is None:
+        raise ValueError("Journal not found")
+
+    return journal
+
+
+def update_journal(
+    db: Session,
+    current_user: User,
+    journal_id: int,
+    journal_data: JournalUpdate,
+) -> Journal:
+    journal = get_journal(
+        db=db,
+        current_user=current_user,
+        journal_id=journal_id,
+    )
+
+    if journal_data.content is not None:
+        journal.content = journal_data.content
+
+    if journal_data.entry_date is not None:
+        journal.entry_date = journal_data.entry_date
+
+    db.commit()
+    db.refresh(journal)
+
+    return journal
+
+
+def delete_journal(
+    db: Session,
+    current_user: User,
+    journal_id: int,
+) -> None:
+    journal = get_journal(
+        db=db,
+        current_user=current_user,
+        journal_id=journal_id,
+    )
+
+    db.delete(journal)
+    db.commit()
+
+
+def get_journal_analysis(
+    db: Session,
+    current_user: User,
+    journal_id: int,
+) -> JournalAnalysis:
+    journal = get_journal(
+        db=db,
+        current_user=current_user,
+        journal_id=journal_id,
+    )
+
+    analysis = db.query(JournalAnalysis).filter(
+        JournalAnalysis.journal_id == journal.id,
+    ).first()
+
+    if analysis is None:
+        raise ValueError("Journal analysis not found")
+
+    return analysis

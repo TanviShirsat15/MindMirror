@@ -5,7 +5,13 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
+from app.api.journals import router as journals_router
+from app.api.habits import router as habits_router
+from app.api.habit_logs import router as habit_logs_router
+from app.api.wellbeing_scores import router as wellbeing_scores_router
+from app.api.insights import router as insights_router
 from app.config import settings
+
 
 logger = logging.getLogger("mindmirror")
 logging.basicConfig(
@@ -48,3 +54,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # Include health router
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(journals_router)
+app.include_router(habits_router)
+app.include_router(habit_logs_router)
+app.include_router(wellbeing_scores_router)
+app.include_router(insights_router)
