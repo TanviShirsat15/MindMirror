@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import limiter
 from app.core.security import create_access_token
 from app.database import get_db
 from app.models.user import User
@@ -20,7 +22,9 @@ router = APIRouter(
     response_model=UserRead,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 def register(
+    request: Request,
     user_data: UserCreate,
     db: Session = Depends(get_db),
 ):
@@ -34,7 +38,9 @@ def register(
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     user_data: UserLogin,
     db: Session = Depends(get_db),
 ):
@@ -50,7 +56,10 @@ def login(
             detail="Invalid email or password",
         )
 
-    access_token = create_access_token(str(user.id))
+    access_token = create_access_token(
+        str(user.id),
+        settings.JWT_EXPIRE_MINUTES,
+    )
 
     return Token(
         access_token=access_token,

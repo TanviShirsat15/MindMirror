@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app as fastapi_app
+from app.main import limiter
 import app.models
 
 
@@ -56,7 +57,11 @@ def client():
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(fastapi_app) as test_client:
-        yield test_client
+    limiter.reset()
 
-    fastapi_app.dependency_overrides.clear()
+    try:
+        with TestClient(fastapi_app) as test_client:
+            yield test_client
+    finally:
+        fastapi_app.dependency_overrides.clear()
+        limiter.reset()
