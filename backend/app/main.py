@@ -34,11 +34,8 @@ app.state.limiter = limiter
 
 
 # CORS configuration restricted to frontend local development origin
-origins = [
-    settings.FRONTEND_URL,
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# CORS configuration restricted to the configured frontend origin
+origins = [settings.FRONTEND_URL]
 
 app.add_middleware(
     CORSMiddleware,

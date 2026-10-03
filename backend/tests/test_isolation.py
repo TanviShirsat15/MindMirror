@@ -46,7 +46,9 @@ def test_user_data_isolation(client):
         "Authorization": f"Bearer {token_b}"
     }
 
-    # User A creates a journal
+    # ---------------------------------------------------------
+    # Journal
+    # ---------------------------------------------------------
     response = client.post(
         "/api/journals",
         headers=headers_a,
@@ -59,7 +61,16 @@ def test_user_data_isolation(client):
     assert response.status_code == 201
     journal_id = response.json()["id"]
 
-    # User B must NOT access User A's journal
+    # User A can access their own journal
+    response = client.get(
+        f"/api/journals/{journal_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == journal_id
+
+    # User B cannot access User A's journal
     response = client.get(
         f"/api/journals/{journal_id}",
         headers=headers_b,
@@ -67,7 +78,13 @@ def test_user_data_isolation(client):
 
     assert response.status_code == 404
 
-    # User A creates a habit
+    # Journal analysis is read-only in the current API.
+    # No analysis record can be created through an endpoint,
+    # so the isolation test does not fabricate one.
+
+    # ---------------------------------------------------------
+    # Habit
+    # ---------------------------------------------------------
     response = client.post(
         "/api/habits",
         headers=headers_a,
@@ -81,7 +98,16 @@ def test_user_data_isolation(client):
     assert response.status_code == 201
     habit_id = response.json()["id"]
 
-    # User B must NOT access User A's habit
+    # User A can access their own habit
+    response = client.get(
+        f"/api/habits/{habit_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == habit_id
+
+    # User B cannot access User A's habit
     response = client.get(
         f"/api/habits/{habit_id}",
         headers=headers_b,
@@ -89,7 +115,45 @@ def test_user_data_isolation(client):
 
     assert response.status_code == 404
 
-    # User A creates a well-being score
+    # ---------------------------------------------------------
+    # Habit Log
+    # ---------------------------------------------------------
+    response = client.post(
+        f"/api/habit-logs/{habit_id}",
+        headers=headers_a,
+        json={
+            "log_date": "2026-10-03",
+            "completed_value": 1,
+            "is_completed": True,
+        },
+    )
+
+    assert response.status_code == 201
+    habit_log_id = response.json()["id"]
+
+    # User A can access their own habit logs
+    response = client.get(
+        f"/api/habit-logs/{habit_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert any(
+        log["id"] == habit_log_id
+        for log in response.json()
+    )
+
+    # User B cannot access User A's habit logs
+    response = client.get(
+        f"/api/habit-logs/{habit_id}",
+        headers=headers_b,
+    )
+
+    assert response.status_code == 404
+
+    # ---------------------------------------------------------
+    # Well-being Score
+    # ---------------------------------------------------------
     response = client.post(
         "/api/wellbeing-scores",
         headers=headers_a,
@@ -103,7 +167,16 @@ def test_user_data_isolation(client):
     assert response.status_code == 201
     score_id = response.json()["id"]
 
-    # User B must NOT access User A's score
+    # User A can access their own score
+    response = client.get(
+        f"/api/wellbeing-scores/{score_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == score_id
+
+    # User B cannot access User A's score
     response = client.get(
         f"/api/wellbeing-scores/{score_id}",
         headers=headers_b,
@@ -111,7 +184,9 @@ def test_user_data_isolation(client):
 
     assert response.status_code == 404
 
-    # User A creates an insight
+    # ---------------------------------------------------------
+    # Insight
+    # ---------------------------------------------------------
     response = client.post(
         "/api/insights",
         headers=headers_a,
@@ -124,11 +199,19 @@ def test_user_data_isolation(client):
     assert response.status_code == 201
     insight_id = response.json()["id"]
 
-    # User B must NOT access User A's insight
+    # User A can access their own insight
+    response = client.get(
+        f"/api/insights/{insight_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == insight_id
+
+    # User B cannot access User A's insight
     response = client.get(
         f"/api/insights/{insight_id}",
         headers=headers_b,
     )
 
     assert response.status_code == 404
-

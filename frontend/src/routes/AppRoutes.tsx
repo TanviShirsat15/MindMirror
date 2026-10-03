@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
+import PublicOnlyRoute from '../auth/PublicOnlyRoute'
+import ProtectedRoute from '../auth/ProtectedRoute'
 import AppLayout from '../layouts/AppLayout'
 import AuthLayout from '../layouts/AuthLayout'
 
@@ -16,20 +18,24 @@ import ProfileSettingsPage from '../pages/settings/ProfileSettingsPage'
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
+      <Route element={<PublicOnlyRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+        </Route>
       </Route>
 
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/journal" element={<JournalPage />} />
-        <Route path="/habits" element={<HabitsPage />} />
-        <Route path="/wellbeing" element={<WellBeingAnalysisPage />} />
-        <Route path="/analytics" element={<AnalyticsHistoryPage />} />
-        <Route path="/insights" element={<InsightsPage />} />
-        <Route path="/settings" element={<ProfileSettingsPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/journal" element={<JournalPage />} />
+          <Route path="/habits" element={<HabitsPage />} />
+          <Route path="/wellbeing" element={<WellBeingAnalysisPage />} />
+          <Route path="/analytics" element={<AnalyticsHistoryPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/settings" element={<ProfileSettingsPage />} />
+        </Route>
       </Route>
     </Routes>
   )
