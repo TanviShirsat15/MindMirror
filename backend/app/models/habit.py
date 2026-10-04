@@ -37,6 +37,13 @@ class Habit(Base):
         nullable=True,
     )
 
+    frequency: Mapped[str] = mapped_column(
+    String(20),
+    nullable=False,
+    default="daily",
+    server_default="daily",
+)
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Edit3, Plus, Target, Trash2 } from 'lucide-react'
 
 import Badge from '../../components/ui/Badge'
@@ -8,129 +8,341 @@ import EmptyState from '../../components/ui/EmptyState'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import {
-  habits as initialHabits,
-  habitLogs as initialHabitLogs,
-} from '../../mock/habitData'
-import type { Habit, HabitLog } from '../../types/habit'
+  ApiError,
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPut,
+} from '../../api/client'
+import type { Habit, HabitLog, HabitMetrics } from '../../types/habit'
+
+interface HabitWithData extends Habit {
+  logs: HabitLog[]
+  metrics: HabitMetrics | null
+}
+
+
+function getRecentDates(): string[] {
+  const today = new Date()
+  const dates: string[] = []
+
+  for (let index = 6; index >= 0; index -= 1) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - index)
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+
+    dates.push(`${year}-${month}-${day}`)
+  }
+
+  return dates
+}
+
+function formatDateLabel(dateValue: string): string {
+  const date = new Date(`${dateValue}T00:00:00`)
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
+function formatTarget(habit: Habit): string {
+  const unit = habit.target_unit?.trim()
+
+  if (!unit) {
+    return String(habit.target_value)
+  }
+
+  return `${habit.target_value} ${unit}`
+}
 
 export default function HabitsPage() {
-  const [habits, setHabits] = useState<Habit[]>(initialHabits)
-  const [logs, setLogs] = useState<HabitLog[]>(initialHabitLogs)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
-  const [name, setName] = useState('')
-  const [targetPerWeek, setTargetPerWeek] = useState('3')
+  const [habits, setHabits] = useState<HabitWithData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
   const [savedMessage, setSavedMessage] = useState('')
+
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
+  const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null)
+
+  const [name, setName] = useState('')
+  const [targetValue, setTargetValue] = useState('1')
+  const [targetUnit, setTargetUnit] = useState('')
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [updatingHabitId, setUpdatingHabitId] = useState<number | null>(null)
+
+  const recentDates = useMemo(() => getRecentDates(), [])
+
+  const showSavedMessage = (message: string) => {
+    setSavedMessage(message)
+
+    window.setTimeout(() => {
+      setSavedMessage('')
+    }, 2000)
+  }
+
+  const loadHabits = async () => {
+    setIsLoading(true)
+    setErrorMessage('')
+
+    try {
+      const habitList = await apiGet<Habit[]>('/api/habits')
+
+      const habitData = await Promise.all(
+        habitList.map(async (habit) => {
+          const [logs, metrics] = await Promise.all([
+            apiGet<HabitLog[]>(
+              `/api/habit-logs/${habit.id}?start_date=${recentDates[0]}&end_date=${recentDates[6]}`,
+            ),
+            apiGet<HabitMetrics>(
+              `/api/habits/${habit.id}/metrics?window=weekly`,
+            ),
+          ])
+
+          return {
+            ...habit,
+            logs,
+            metrics,
+          }
+        }),
+      )
+
+      setHabits(habitData)
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Unable to load habits. Please try again.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadHabits()
+  }, [])
 
   const openAddModal = () => {
     setEditingHabit(null)
     setName('')
-    setTargetPerWeek('3')
+    setTargetValue('1')
+    setTargetUnit('')
+    setErrorMessage('')
     setIsModalOpen(true)
   }
 
   const openEditModal = (habit: Habit) => {
     setEditingHabit(habit)
     setName(habit.name)
-    setTargetPerWeek(String(habit.targetPerWeek))
+    setTargetValue(String(habit.target_value))
+    setTargetUnit(habit.target_unit ?? '')
+    setErrorMessage('')
     setIsModalOpen(true)
   }
 
-  const handleSaveHabit = () => {
-    const trimmedName = name.trim()
-    const target = Number(targetPerWeek)
-
-    if (!trimmedName || target < 1 || target > 7) {
+  const closeHabitModal = () => {
+    if (isSaving) {
       return
     }
 
-    if (editingHabit) {
-      setHabits((currentHabits) =>
-        currentHabits.map((habit) =>
-          habit.id === editingHabit.id
-            ? {
-                ...habit,
-                name: trimmedName,
-                targetPerWeek: target,
-              }
-            : habit,
-        ),
-      )
+    setIsModalOpen(false)
+    setEditingHabit(null)
+    setName('')
+    setTargetValue('1')
+    setTargetUnit('')
+  }
 
-      setSavedMessage('Habit updated')
-    } else {
-      const newHabit: Habit = {
-        id: `demo-habit-${Date.now()}`,
-        name: trimmedName,
-        targetPerWeek: target,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      }
+  const handleSaveHabit = async () => {
+    const trimmedName = name.trim()
+    const numericTarget = Number(targetValue)
 
-      setHabits((currentHabits) => [...currentHabits, newHabit])
-      setSavedMessage('Habit added')
+    if (!trimmedName) {
+      setErrorMessage('Habit name cannot be empty.')
+      return
     }
 
-    setIsModalOpen(false)
+    if (!Number.isFinite(numericTarget) || numericTarget <= 0) {
+      setErrorMessage('Habit target must be greater than zero.')
+      return
+    }
 
-    window.setTimeout(() => {
-      setSavedMessage('')
-    }, 2000)
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      if (editingHabit) {
+        await apiPut<Habit>(`/api/habits/${editingHabit.id}`, {
+          name: trimmedName,
+          target_value: numericTarget,
+          target_unit: targetUnit.trim() || null,
+          frequency: 'daily',
+        })
+
+        showSavedMessage('Habit updated')
+      } else {
+        await apiPost<Habit>('/api/habits', {
+          name: trimmedName,
+          target_value: numericTarget,
+          target_unit: targetUnit.trim() || null,
+          frequency: 'daily',
+        })
+
+        showSavedMessage('Habit added')
+      }
+
+      closeHabitModal()
+      await loadHabits()
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Unable to save habit. Please try again.')
+      }
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleDeactivate = (habitId: string) => {
-    setHabits((currentHabits) =>
-      currentHabits.map((habit) =>
-        habit.id === habitId
-          ? { ...habit, isActive: false }
-          : habit,
-      ),
-    )
+  const handleDeactivate = async (habit: Habit) => {
+    setUpdatingHabitId(habit.id)
+    setErrorMessage('')
 
-    setSavedMessage('Habit deactivated')
+    try {
+      await apiPut<Habit>(`/api/habits/${habit.id}`, {
+        is_active: false,
+      })
 
-    window.setTimeout(() => {
-      setSavedMessage('')
-    }, 2000)
+      showSavedMessage('Habit deactivated')
+      await loadHabits()
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Unable to deactivate habit. Please try again.')
+      }
+    } finally {
+      setUpdatingHabitId(null)
+    }
   }
 
-  const toggleCompletion = (habitId: string, date: string) => {
-    setLogs((currentLogs) => {
-      const existingLog = currentLogs.find(
-        (log) => log.habitId === habitId && log.date === date,
-      )
+  const handleReactivate = async (habit: Habit) => {
+    setUpdatingHabitId(habit.id)
+    setErrorMessage('')
 
-      if (existingLog) {
-        return currentLogs.map((log) =>
-          log.id === existingLog.id
-            ? {
-                ...log,
-                completed: !log.completed,
-              }
-            : log,
+    try {
+      await apiPut<Habit>(`/api/habits/${habit.id}`, {
+        is_active: true,
+      })
+
+      showSavedMessage('Habit reactivated')
+      await loadHabits()
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Unable to reactivate habit. Please try again.')
+      }
+    } finally {
+      setUpdatingHabitId(null)
+    }
+  }
+
+  const openDeleteModal = (habit: Habit) => {
+    setDeletingHabit(habit)
+    setErrorMessage('')
+    setIsDeleteModalOpen(true)
+  }
+
+  const closeDeleteModal = () => {
+    if (isDeleting) {
+      return
+    }
+
+    setIsDeleteModalOpen(false)
+    setDeletingHabit(null)
+  }
+
+  const handleHardDelete = async () => {
+    if (!deletingHabit) {
+      return
+    }
+
+    setIsDeleting(true)
+    setErrorMessage('')
+
+    try {
+      await apiDelete<void>(`/api/habits/${deletingHabit.id}`)
+
+      showSavedMessage('Habit permanently deleted')
+      closeDeleteModal()
+      await loadHabits()
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage('Unable to delete habit. Please try again.')
+      }
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const toggleCompletion = async (
+    habit: Habit,
+    date: string,
+    isCompleted: boolean,
+  ) => {
+    setUpdatingHabitId(habit.id)
+    setErrorMessage('')
+
+    try {
+      if (isCompleted) {
+        await apiPost<HabitLog>(
+          `/api/habits/${habit.id}/undo?log_date=${date}`,
+          {},
+        )
+      } else {
+        await apiPost<HabitLog>(
+          `/api/habits/${habit.id}/complete?log_date=${date}`,
+          {},
         )
       }
 
-      return [
-        ...currentLogs,
-        {
-          id: `demo-log-${Date.now()}`,
-          habitId,
-          date,
-          completed: true,
-        },
-      ]
-    })
+      await loadHabits()
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage(
+          'Unable to update completion. Please try again.',
+        )
+      }
+    } finally {
+      setUpdatingHabitId(null)
+    }
   }
 
-  const activeHabits = habits.filter((habit) => habit.isActive)
+  const activeHabits = habits.filter((habit) => habit.is_active)
+  const inactiveHabits = habits.filter((habit) => !habit.is_active)
 
-  const completedCount = logs.filter(
-    (log) => log.completed,
-  ).length
+  const completedCount = habits.reduce(
+    (total, habit) =>
+      total +
+      habit.logs.filter((log) => log.is_completed).length,
+    0,
+  )
 
   const trackedDays = new Set(
-    logs.map((log) => log.date),
+    habits.flatMap((habit) => habit.logs.map((log) => log.log_date)),
   ).size
 
   return (
@@ -164,6 +376,15 @@ export default function HabitsPage() {
           className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
         >
           {savedMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {errorMessage}
         </div>
       )}
 
@@ -205,7 +426,11 @@ export default function HabitsPage() {
         title="Your habits"
         description="Targets and recent completion activity."
       >
-        {activeHabits.length === 0 ? (
+        {isLoading ? (
+          <div className="py-10 text-center text-sm text-slate-500">
+            Loading habits...
+          </div>
+        ) : activeHabits.length === 0 ? (
           <EmptyState
             title="No active habits"
             description="Add a habit to start tracking your routine."
@@ -219,22 +444,20 @@ export default function HabitsPage() {
         ) : (
           <div className="space-y-4">
             {activeHabits.map((habit) => {
-              const habitLogs = logs.filter(
-                (log) => log.habitId === habit.id,
+              const logByDate = new Map(
+                habit.logs.map((log) => [log.log_date, log]),
               )
 
-              const completed = habitLogs.filter(
-                (log) => log.completed,
-              ).length
-
               const completionRate =
-                habitLogs.length > 0
-                  ? Math.round(
-                      (completed / habitLogs.length) * 100,
-                    )
-                  : 0
+                habit.metrics?.completion_rate ?? 0
 
-              const recentLogs = habitLogs.slice(-7)
+              const currentStreak =
+                habit.metrics?.current_streak ?? 0
+
+              const longestStreak =
+                habit.metrics?.longest_streak ?? 0
+
+              const isUpdating = updatingHabitId === habit.id
 
               return (
                 <div
@@ -253,7 +476,7 @@ export default function HabitsPage() {
                         </h2>
 
                         <p className="mt-1 text-xs text-slate-500">
-                          Target: {habit.targetPerWeek} days per week
+                          Target: {formatTarget(habit)} daily
                         </p>
                       </div>
                     </div>
@@ -268,12 +491,13 @@ export default function HabitsPage() {
                               : 'default'
                         }
                       >
-                        {completionRate}% recent completion
+                        {completionRate}% weekly completion
                       </Badge>
 
                       <Button
                         variant="ghost"
                         onClick={() => openEditModal(habit)}
+                        disabled={isUpdating}
                         aria-label={`Edit ${habit.name}`}
                       >
                         <Edit3 className="h-4 w-4" />
@@ -281,7 +505,8 @@ export default function HabitsPage() {
 
                       <Button
                         variant="ghost"
-                        onClick={() => handleDeactivate(habit.id)}
+                        onClick={() => handleDeactivate(habit)}
+                        disabled={isUpdating}
                         aria-label={`Deactivate ${habit.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -289,55 +514,88 @@ export default function HabitsPage() {
                     </div>
                   </div>
 
+                  {/* Metrics */}
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-xs text-slate-500">
+                        Weekly completion
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-700">
+                        {habit.metrics?.completed_days ?? 0}/
+                        {habit.metrics?.expected_days ?? 7} days
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-xs text-slate-500">
+                        Current streak
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-700">
+                        {currentStreak} day
+                        {currentStreak === 1 ? '' : 's'}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="text-xs text-slate-500">
+                        Longest streak
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-700">
+                        {longestStreak} day
+                        {longestStreak === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Completion Tracking */}
                   <div className="mt-4">
                     <p className="mb-2 text-xs font-medium text-slate-500">
-                      Recent completion
+                      Last 7 days
                     </p>
 
                     <div className="grid grid-cols-7 gap-2">
-                      {recentLogs.map((log) => (
-                        <button
-                          key={log.id}
-                          type="button"
-                          onClick={() =>
-                            toggleCompletion(
-                              habit.id,
-                              log.date,
-                            )
-                          }
-                          aria-label={`${log.completed ? 'Undo' : 'Mark'} ${habit.name} for ${log.date}`}
-                          aria-pressed={log.completed}
-                          className="flex flex-col items-center gap-1 rounded-lg p-1 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                        >
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                              log.completed
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-slate-100 text-slate-400'
-                            }`}
-                          >
-                            {log.completed ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <span className="text-xs">
-                                –
-                              </span>
-                            )}
-                          </span>
+                      {recentDates.map((date) => {
+                        const log = logByDate.get(date)
+                        const completed = log?.is_completed ?? false
 
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(
-                              log.date,
-                            ).toLocaleDateString(
-                              'en-IN',
-                              {
-                                day: 'numeric',
-                              },
-                            )}
-                          </span>
-                        </button>
-                      ))}
+                        return (
+                          <button
+                            key={date}
+                            type="button"
+                            disabled={isUpdating}
+                            onClick={() =>
+                              toggleCompletion(
+                                habit,
+                                date,
+                                completed,
+                              )
+                            }
+                            aria-label={`${
+                              completed ? 'Undo' : 'Mark'
+                            } ${habit.name} for ${date}`}
+                            aria-pressed={completed}
+                            className="flex flex-col items-center gap-1 rounded-lg p-1 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span
+                              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                                completed
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : 'bg-slate-100 text-slate-400'
+                              }`}
+                            >
+                              {completed ? (
+                                <Check className="h-4 w-4" />
+                              ) : (
+                                <span className="text-xs">–</span>
+                              )}
+                            </span>
+
+                            <span className="text-[10px] text-slate-400">
+                              {formatDateLabel(date)}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
 
                     <p className="mt-2 text-xs text-slate-400">
@@ -352,10 +610,56 @@ export default function HabitsPage() {
         )}
       </Card>
 
+      {/* Inactive Habits */}
+      {!isLoading && inactiveHabits.length > 0 && (
+        <Card
+          title="Inactive habits"
+          description="Deactivated habits remain available so their history is preserved."
+        >
+          <div className="space-y-3">
+            {inactiveHabits.map((habit) => (
+              <div
+                key={habit.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-700">
+                    {habit.name}
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Target: {formatTarget(habit)} daily
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleReactivate(habit)}
+                    disabled={updatingHabitId === habit.id}
+                  >
+                    Reactivate
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => openDeleteModal(habit)}
+                    disabled={updatingHabitId === habit.id}
+                    aria-label={`Permanently delete ${habit.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={closeHabitModal}
         title={editingHabit ? 'Edit Habit' : 'Add Habit'}
       >
         <div className="space-y-4">
@@ -367,30 +671,88 @@ export default function HabitsPage() {
           />
 
           <Input
-            label="Target per week"
+            label="Daily target"
             type="number"
-            min="1"
-            max="7"
-            value={targetPerWeek}
+            min="0.01"
+            step="0.01"
+            value={targetValue}
             onChange={(event) =>
-              setTargetPerWeek(event.target.value)
+              setTargetValue(event.target.value)
             }
-            helperText="Choose how many days per week you want to target."
+            helperText="Enter the amount you want to complete each day."
           />
+
+          <Input
+            label="Target unit"
+            placeholder="e.g. minutes, glasses, pages"
+            value={targetUnit}
+            onChange={(event) =>
+              setTargetUnit(event.target.value)
+            }
+            helperText="Optional. Use a unit that makes sense for your habit."
+          />
+
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Frequency: Daily
+          </div>
 
           <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={closeHabitModal}
+              disabled={isSaving}
             >
               Cancel
             </Button>
 
             <Button
               onClick={handleSaveHabit}
-              disabled={!name.trim()}
+              disabled={!name.trim() || isSaving}
             >
-              {editingHabit ? 'Save Changes' : 'Add Habit'}
+              {isSaving
+                ? 'Saving...'
+                : editingHabit
+                  ? 'Save Changes'
+                  : 'Add Habit'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Hard Delete Confirmation */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        title="Permanently Delete Habit"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-slate-600">
+            Are you sure you want to permanently delete{' '}
+            <span className="font-semibold text-slate-800">
+              {deletingHabit?.name}
+            </span>
+            ?
+          </p>
+
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            This action is irreversible and will also delete the
+            habit's completion history.
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={closeDeleteModal}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleHardDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Permanently'}
             </Button>
           </div>
         </div>

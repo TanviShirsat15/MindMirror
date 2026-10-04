@@ -125,4 +125,3 @@ def delete_habit_log_endpoint(
             status_code=404,
             detail=str(exc),
         ) from exc
-

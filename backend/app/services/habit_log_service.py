@@ -146,3 +146,72 @@ def delete_habit_log(
 
     db.delete(habit_log)
     db.commit()
+
+def complete_habit(
+    db: Session,
+    current_user: User,
+    habit_id: int,
+    log_date: date,
+) -> HabitLog:
+    get_user_habit(
+        db=db,
+        current_user=current_user,
+        habit_id=habit_id,
+    )
+
+    habit_log = db.query(HabitLog).filter(
+        HabitLog.habit_id == habit_id,
+        HabitLog.user_id == current_user.id,
+        HabitLog.log_date == log_date,
+    ).first()
+
+    if habit_log is None:
+        habit_log = HabitLog(
+            habit_id=habit_id,
+            user_id=current_user.id,
+            log_date=log_date,
+            is_completed=True,
+        )
+        db.add(habit_log)
+    else:
+        habit_log.is_completed = True
+
+    db.commit()
+    db.refresh(habit_log)
+
+    return habit_log
+
+
+def undo_habit(
+    db: Session,
+    current_user: User,
+    habit_id: int,
+    log_date: date,
+) -> HabitLog:
+    get_user_habit(
+        db=db,
+        current_user=current_user,
+        habit_id=habit_id,
+    )
+
+    habit_log = db.query(HabitLog).filter(
+        HabitLog.habit_id == habit_id,
+        HabitLog.user_id == current_user.id,
+        HabitLog.log_date == log_date,
+    ).first()
+
+    if habit_log is None:
+        habit_log = HabitLog(
+            habit_id=habit_id,
+            user_id=current_user.id,
+            log_date=log_date,
+            is_completed=False,
+        )
+        db.add(habit_log)
+    else:
+        habit_log.is_completed = False
+
+    db.commit()
+    db.refresh(habit_log)
+
+    return habit_log

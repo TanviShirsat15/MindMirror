@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+
 import { Link } from 'react-router-dom'
 
 import {
@@ -64,9 +65,15 @@ export default function DashboardPage() {
 
   const scoreChange = latestScore.score - previousScore.score
 
-  const completedLogs = habitLogs.filter((log) => log.completed).length
+  const completedLogs = habitLogs.filter(
+    (log) => log.is_completed,
+  ).length
+
   const totalLogs = habitLogs.length
-  const completionRate = Math.round((completedLogs / totalLogs) * 100)
+  const completionRate =
+    totalLogs > 0
+      ? Math.round((completedLogs / totalLogs) * 100)
+      : 0
 
   const latestInsight = insights[0]
 
@@ -310,7 +317,10 @@ export default function DashboardPage() {
                 </span>
 
                 <span className="text-sm font-semibold text-slate-800">
-                  {Math.round(latestScore.positiveEmotion * 100)}%
+                  {Math.round(
+                    latestScore.positiveEmotion * 100,
+                  )}
+                  %
                 </span>
               </div>
 
@@ -383,7 +393,7 @@ export default function DashboardPage() {
               const habitLogs = habitLogsForHabit(habit.id)
 
               const completed = habitLogs.filter(
-                (log) => log.completed,
+                (log) => log.is_completed,
               ).length
 
               return (
@@ -397,16 +407,17 @@ export default function DashboardPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Target: {habit.targetPerWeek} days/week
+                      Target: {habit.target_value}
+                      {habit.target_unit
+                        ? ` ${habit.target_unit}`
+                        : ''}{' '}
+                      daily
                     </p>
                   </div>
 
                   <Badge
                     variant={
-                      completed >=
-                      Math.ceil(habit.targetPerWeek / 2)
-                        ? 'success'
-                        : 'warning'
+                      completed > 0 ? 'success' : 'warning'
                     }
                   >
                     {completed} completed
@@ -455,6 +466,6 @@ export default function DashboardPage() {
   )
 }
 
-function habitLogsForHabit(habitId: string) {
-  return habitLogs.filter((log) => log.habitId === habitId)
+function habitLogsForHabit(habitId: number) {
+  return habitLogs.filter((log) => log.habit_id === habitId)
 }
