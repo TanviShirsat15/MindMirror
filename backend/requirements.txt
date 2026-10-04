@@ -32,3 +32,4 @@ Deprecated==3.0.0
 limits==5.8.0
 slowapi==0.1.10
 wrapt==2.5.0
+vaderSentiment==3.3.2

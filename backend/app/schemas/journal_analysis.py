@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class JournalAnalysisRead(BaseModel):
@@ -11,5 +11,6 @@ class JournalAnalysisRead(BaseModel):
     sentiment_score: float
     stress_indicator: float
     positive_emotion_score: float | None
+    negative_emotion_score: float | None
     created_at: datetime
     updated_at: datetime

@@ -31,6 +31,17 @@ interface JournalEntry {
   updated_at: string
 }
 
+interface JournalAnalysis {
+  id: number
+  journal_id: number
+  sentiment_score: number
+  stress_indicator: number
+  positive_emotion_score: number | null
+  negative_emotion_score: number | null
+  created_at: string
+  updated_at: string
+}
+
 function getTodayDate(): string {
   const today = new Date()
 
@@ -77,6 +88,7 @@ export default function JournalPage() {
   const [entryDate, setEntryDate] = useState(getTodayDate())
 
   const [entries, setEntries] = useState<JournalEntry[]>([])
+  const [analyses, setAnalyses] = useState<Record<number, JournalAnalysis>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -104,6 +116,30 @@ export default function JournalPage() {
     try {
       const data = await apiGet<JournalEntry[]>('/api/journals')
       setEntries(data)
+
+      const analysisResults = await Promise.all(
+        data.map(async (entry) => {
+          try {
+            const analysis = await apiGet<JournalAnalysis>(
+              `/api/journals/${entry.id}/analysis`,
+            )
+
+            return [entry.id, analysis] as const
+          } catch {
+            return null
+          }
+        }),
+      )
+
+      const analysisMap: Record<number, JournalAnalysis> = {}
+
+      for (const result of analysisResults) {
+        if (result) {
+          analysisMap[result[0]] = result[1]
+        }
+      }
+
+      setAnalyses(analysisMap)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -139,6 +175,19 @@ export default function JournalPage() {
         newEntry,
         ...currentEntries,
       ])
+
+      try {
+        const analysis = await apiGet<JournalAnalysis>(
+          `/api/journals/${newEntry.id}/analysis`,
+        )
+
+        setAnalyses((currentAnalyses) => ({
+          ...currentAnalyses,
+          [newEntry.id]: analysis,
+        }))
+      } catch {
+        // Journal entry remains usable if analysis is temporarily unavailable.
+      }
 
       setContent('')
       setEntryDate(getTodayDate())
@@ -203,6 +252,23 @@ export default function JournalPage() {
         ),
       )
 
+      try {
+        const analysis = await apiGet<JournalAnalysis>(
+          `/api/journals/${updatedEntry.id}/analysis`,
+        )
+
+        setAnalyses((currentAnalyses) => ({
+          ...currentAnalyses,
+          [updatedEntry.id]: analysis,
+        }))
+      } catch {
+        setAnalyses((currentAnalyses) => {
+          const next = { ...currentAnalyses }
+          delete next[updatedEntry.id]
+          return next
+        })
+      }
+
       closeEditModal()
       setSavedMessage('Journal entry updated.')
 
@@ -249,6 +315,12 @@ export default function JournalPage() {
           (entry) => entry.id !== deletingEntry.id,
         ),
       )
+
+      setAnalyses((currentAnalyses) => {
+        const next = { ...currentAnalyses }
+        delete next[deletingEntry.id]
+        return next
+      })
 
       closeDeleteModal()
       setSavedMessage('Journal entry deleted.')
@@ -343,7 +415,6 @@ export default function JournalPage() {
               disabled={!content.trim() || isSaving}
             >
               <PenLine className="mr-2 h-4 w-4" />
-
               {isSaving ? 'Saving...' : 'Save Entry'}
             </Button>
           </div>
@@ -407,6 +478,47 @@ export default function JournalPage() {
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
                   {entry.content}
                 </p>
+
+                {analyses[entry.id] && (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      NLP Analysis Signals
+                    </p>
+
+                    <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                      <p>
+                        Sentiment:{' '}
+                        {analyses[entry.id].sentiment_score.toFixed(3)}
+                      </p>
+
+                      <p>
+                        Positive emotion:{' '}
+                        {(
+                          (analyses[entry.id].positive_emotion_score ?? 0) *
+                          100
+                        ).toFixed(1)}
+                        %
+                      </p>
+
+                      <p>
+                        Negative emotion:{' '}
+                        {(
+                          (analyses[entry.id].negative_emotion_score ?? 0) *
+                          100
+                        ).toFixed(1)}
+                        %
+                      </p>
+
+                      <p>
+                        Stress-related linguistic indicator:{' '}
+                        {(analyses[entry.id].stress_indicator * 100).toFixed(
+                          1,
+                        )}
+                        %
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
                   <Button

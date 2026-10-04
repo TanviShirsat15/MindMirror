@@ -6,6 +6,52 @@ from app.models.journal import Journal
 from app.models.journal_analysis import JournalAnalysis
 from app.models.user import User
 from app.schemas.journal import JournalCreate, JournalUpdate
+from app.services.nlp.analysis_service import analyze_journal_text
+
+
+def _create_journal_analysis(
+    db: Session,
+    journal: Journal,
+) -> None:
+    """Create NLP analysis for a journal entry."""
+    analysis_result = analyze_journal_text(journal.content)
+
+    analysis = JournalAnalysis(
+        journal_id=journal.id,
+        sentiment_score=analysis_result["sentiment_score"],
+        stress_indicator=analysis_result["stress_indicator"],
+        positive_emotion_score=analysis_result["positive_emotion_score"],
+        negative_emotion_score=analysis_result["negative_emotion_score"],
+    )
+
+    db.add(analysis)
+
+
+def _update_journal_analysis(
+    db: Session,
+    journal: Journal,
+) -> None:
+    """Recalculate and update NLP analysis for a journal entry."""
+    analysis_result = analyze_journal_text(journal.content)
+
+    analysis = db.query(JournalAnalysis).filter(
+        JournalAnalysis.journal_id == journal.id,
+    ).first()
+
+    if analysis is None:
+        analysis = JournalAnalysis(
+            journal_id=journal.id,
+        )
+        db.add(analysis)
+
+    analysis.sentiment_score = analysis_result["sentiment_score"]
+    analysis.stress_indicator = analysis_result["stress_indicator"]
+    analysis.positive_emotion_score = analysis_result[
+        "positive_emotion_score"
+    ]
+    analysis.negative_emotion_score = analysis_result[
+        "negative_emotion_score"
+    ]
 
 
 def create_journal(
@@ -22,6 +68,13 @@ def create_journal(
     )
 
     db.add(journal)
+    db.flush()
+
+    _create_journal_analysis(
+        db=db,
+        journal=journal,
+    )
+
     db.commit()
     db.refresh(journal)
 
@@ -49,9 +102,9 @@ def list_journals(
         query = query.filter(Journal.entry_date <= end_date)
 
     return query.order_by(
-    Journal.entry_date.desc(),
-    Journal.created_at.desc(),
-).all()
+        Journal.entry_date.desc(),
+        Journal.created_at.desc(),
+    ).all()
 
 
 def get_journal(
@@ -87,6 +140,11 @@ def update_journal(
 
     if journal_data.entry_date is not None:
         journal.entry_date = journal_data.entry_date
+
+    _update_journal_analysis(
+        db=db,
+        journal=journal,
+    )
 
     db.commit()
     db.refresh(journal)

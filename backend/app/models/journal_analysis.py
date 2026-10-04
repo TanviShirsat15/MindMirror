@@ -37,6 +37,11 @@ class JournalAnalysis(Base):
         nullable=True,
     )
 
+    negative_emotion_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
