@@ -122,3 +122,127 @@ def test_empty_journal_is_rejected(client):
     )
 
     assert response.status_code == 422
+
+def test_multiple_same_date_and_multiline_content(client):
+    token = register_and_login(
+        client,
+        "same_date_journal_test@mindmirror.com",
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    multiline_content = "First paragraph.\n\nSecond paragraph.\nThird line."
+
+    response = client.post(
+        "/api/journals",
+        headers=headers,
+        json={
+            "content": "One sentence journal entry.",
+            "entry_date": "2026-10-03",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.post(
+        "/api/journals",
+        headers=headers,
+        json={
+            "content": multiline_content,
+            "entry_date": "2026-10-03",
+        },
+    )
+
+    assert response.status_code == 201
+
+    entries = client.get(
+        "/api/journals",
+        headers=headers,
+    )
+
+    assert entries.status_code == 200
+
+    journal_entries = entries.json()
+
+    assert len(journal_entries) == 2
+    assert any(
+        entry["content"] == "One sentence journal entry."
+        for entry in journal_entries
+    )
+    assert any(
+        entry["content"] == multiline_content
+        for entry in journal_entries
+    )
+
+
+def test_unauthenticated_journal_access_is_rejected(client):
+    response = client.get("/api/journals")
+
+    assert response.status_code == 401
+
+
+def test_journal_cross_user_isolation(client):
+    token_a = register_and_login(
+        client,
+        "journal_owner_a@mindmirror.com",
+    )
+
+    headers_a = {
+        "Authorization": f"Bearer {token_a}"
+    }
+
+    response = client.post(
+        "/api/journals",
+        headers=headers_a,
+        json={
+            "content": "Private journal belonging to User A.",
+            "entry_date": "2026-10-03",
+        },
+    )
+
+    assert response.status_code == 201
+
+    journal_id = response.json()["id"]
+
+    token_b = register_and_login(
+        client,
+        "journal_owner_b@mindmirror.com",
+    )
+
+    headers_b = {
+        "Authorization": f"Bearer {token_b}"
+    }
+
+    response = client.get(
+        f"/api/journals/{journal_id}",
+        headers=headers_b,
+    )
+
+    assert response.status_code == 404
+
+    response = client.put(
+        f"/api/journals/{journal_id}",
+        headers=headers_b,
+        json={
+            "content": "User B should not be able to edit this.",
+        },
+    )
+
+    assert response.status_code == 404
+
+    response = client.delete(
+        f"/api/journals/{journal_id}",
+        headers=headers_b,
+    )
+
+    assert response.status_code == 404
+
+    response = client.get(
+        f"/api/journals/{journal_id}",
+        headers=headers_a,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"] == "Private journal belonging to User A."

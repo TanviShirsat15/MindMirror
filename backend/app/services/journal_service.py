@@ -49,9 +49,9 @@ def list_journals(
         query = query.filter(Journal.entry_date <= end_date)
 
     return query.order_by(
-        Journal.entry_date.desc(),
-        Journal.id.desc(),
-    ).all()
+    Journal.entry_date.desc(),
+    Journal.created_at.desc(),
+).all()
 
 
 def get_journal(

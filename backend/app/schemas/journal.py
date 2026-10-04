@@ -10,9 +10,7 @@ class JournalCreate(BaseModel):
     @field_validator("content")
     @classmethod
     def validate_content(cls, value: str) -> str:
-        value = value.strip()
-
-        if not value:
+        if not value.strip():
             raise ValueError("Journal content cannot be empty")
 
         return value
@@ -28,9 +26,7 @@ class JournalUpdate(BaseModel):
         if value is None:
             return None
 
-        value = value.strip()
-
-        if not value:
+        if not value.strip():
             raise ValueError("Journal content cannot be empty")
 
         return value
