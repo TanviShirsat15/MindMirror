@@ -92,7 +92,15 @@ def update_habit(
         habit.frequency = habit_data.frequency
 
     if habit_data.is_active is not None:
-        habit.is_active = habit_data.is_active
+        if habit_data.is_active:
+            habit.is_active = True
+            habit.deactivated_at = None
+        else:
+            habit.is_active = False
+            if habit.deactivated_at is None:
+                from datetime import datetime
+
+                habit.deactivated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(habit)

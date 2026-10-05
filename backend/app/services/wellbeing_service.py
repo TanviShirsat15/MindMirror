@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -15,6 +15,9 @@ from app.schemas.wellbeing_score import (
     WellBeingScoreUpdate,
 )
 from app.services.fuzzy.fuzzy_engine import calculate_wellbeing_index
+
+
+BASELINE_NEAR_TOLERANCE = 5.0
 
 
 def _get_daily_journal_signals(
@@ -51,29 +54,36 @@ def _get_habit_consistency(
     """
     Calculate same-day habit consistency.
 
-    completed active habits on the date /
-    active habits that existed as of that date
+    Applicable habits on the date /
+    completed applicable habits on the date.
+
+    A habit is applicable on a historical date when:
+    - it was created on or before that date, and
+    - it had not been deactivated before that date.
     """
 
-    active_habits = (
+    habits = (
         db.query(Habit)
         .filter(
             Habit.user_id == current_user.id,
-            Habit.is_active.is_(True),
+            Habit.created_at <= datetime.combine(score_date, datetime.max.time()),
         )
         .all()
     )
 
-    habits_existing_on_date = [
+    habits_applicable_on_date = [
         habit
-        for habit in active_habits
-        if habit.created_at.date() <= score_date
+        for habit in habits
+        if (
+            habit.deactivated_at is None
+            or habit.deactivated_at.date() > score_date
+        )
     ]
 
-    if not habits_existing_on_date:
+    if not habits_applicable_on_date:
         return None
 
-    habit_ids = {habit.id for habit in habits_existing_on_date}
+    habit_ids = {habit.id for habit in habits_applicable_on_date}
 
     completed_count = (
         db.query(HabitLog)
@@ -86,7 +96,76 @@ def _get_habit_consistency(
         .count()
     )
 
-    return completed_count / len(habits_existing_on_date)
+    return completed_count / len(habits_applicable_on_date)
+
+
+def _calculate_personal_baseline(
+    db: Session,
+    current_user: User,
+    score_date: date,
+) -> tuple[float | None, int]:
+    """
+    Calculate the user's personal baseline from previous valid scores.
+
+    Uses up to the 7 most recent valid scores strictly before score_date.
+    A minimum of 3 previous scores is required.
+    The current score/date is never included.
+    """
+
+    previous_scores = (
+        db.query(WellBeingScore.score)
+        .filter(
+            WellBeingScore.user_id == current_user.id,
+            WellBeingScore.score_date < score_date,
+            WellBeingScore.score.is_not(None),
+            WellBeingScore.score >= 1,
+            WellBeingScore.score <= 100,
+        )
+        .order_by(WellBeingScore.score_date.desc())
+        .limit(7)
+        .all()
+    )
+
+    values = [float(row.score) for row in previous_scores]
+
+    sample_size = len(values)
+
+    if sample_size < 3:
+        return None, sample_size
+
+    baseline = sum(values) / sample_size
+
+    return round(baseline, 1), sample_size
+
+
+def _get_baseline_comparison(
+    score: float | None,
+    baseline: float | None,
+    sample_size: int,
+) -> tuple[str, str | None, float | None]:
+    """
+    Determine baseline status, comparison, and difference.
+
+    Returns:
+        status, comparison, difference
+    """
+
+    if score is None:
+        return "no_score", None, None
+
+    if baseline is None or sample_size < 3:
+        return "insufficient_history", None, None
+
+    difference = round(float(score) - float(baseline), 1)
+
+    if difference > BASELINE_NEAR_TOLERANCE:
+        comparison = "above"
+    elif difference < -BASELINE_NEAR_TOLERANCE:
+        comparison = "below"
+    else:
+        comparison = "near"
+
+    return "baseline_available", comparison, difference
 
 
 def recalculate_for_date(
@@ -152,6 +231,16 @@ def recalculate_for_date(
     else:
         existing_score.score = score_value
 
+    db.flush()
+
+    baseline, sample_size = _calculate_personal_baseline(
+        db=db,
+        current_user=current_user,
+        score_date=score_date,
+    )
+
+    existing_score.baseline_value = baseline
+
     db.commit()
     db.refresh(existing_score)
 
@@ -161,7 +250,7 @@ def recalculate_for_date(
 def create_score(
     db: Session,
     current_user: User,
-    score_data: WellBeingScoreCreate
+    score_data: WellBeingScoreCreate,
 ) -> WellBeingScore:
     existing = db.scalar(
         select(WellBeingScore).where(
