@@ -7,6 +7,7 @@ from app.models.journal_analysis import JournalAnalysis
 from app.models.user import User
 from app.schemas.journal import JournalCreate, JournalUpdate
 from app.services.nlp.analysis_service import analyze_journal_text
+from app.services.wellbeing_service import recalculate_for_date
 
 
 def _create_journal_analysis(
@@ -78,6 +79,12 @@ def create_journal(
     db.commit()
     db.refresh(journal)
 
+    recalculate_for_date(
+        db=db,
+        current_user=current_user,
+        score_date=journal.entry_date,
+    )
+
     return journal
 
 
@@ -135,6 +142,8 @@ def update_journal(
         journal_id=journal_id,
     )
 
+    old_entry_date = journal.entry_date
+
     if journal_data.content is not None:
         journal.content = journal_data.content
 
@@ -148,6 +157,19 @@ def update_journal(
 
     db.commit()
     db.refresh(journal)
+
+    recalculate_for_date(
+        db=db,
+        current_user=current_user,
+        score_date=journal.entry_date,
+    )
+
+    if old_entry_date != journal.entry_date:
+        recalculate_for_date(
+            db=db,
+            current_user=current_user,
+            score_date=old_entry_date,
+        )
 
     return journal
 
@@ -163,8 +185,16 @@ def delete_journal(
         journal_id=journal_id,
     )
 
+    entry_date = journal.entry_date
+
     db.delete(journal)
     db.commit()
+
+    recalculate_for_date(
+        db=db,
+        current_user=current_user,
+        score_date=entry_date,
+    )
 
 
 def get_journal_analysis(

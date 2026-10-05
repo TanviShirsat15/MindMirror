@@ -6,6 +6,7 @@ from app.models.habit import Habit
 from app.models.habit_log import HabitLog
 from app.models.user import User
 from app.schemas.habit_log import HabitLogCreate, HabitLogUpdate
+from app.services.wellbeing_service import recalculate_for_date
 
 
 def get_user_habit(
@@ -147,6 +148,7 @@ def delete_habit_log(
     db.delete(habit_log)
     db.commit()
 
+
 def complete_habit(
     db: Session,
     current_user: User,
@@ -178,6 +180,12 @@ def complete_habit(
 
     db.commit()
     db.refresh(habit_log)
+
+    recalculate_for_date(
+        db=db,
+        current_user=current_user,
+        score_date=log_date,
+    )
 
     return habit_log
 
@@ -213,5 +221,11 @@ def undo_habit(
 
     db.commit()
     db.refresh(habit_log)
+
+    recalculate_for_date(
+        db=db,
+        current_user=current_user,
+        score_date=log_date,
+    )
 
     return habit_log
