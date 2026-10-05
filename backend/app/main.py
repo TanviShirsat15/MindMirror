@@ -14,6 +14,7 @@ from app.api.habit_logs import router as habit_logs_router
 from app.api.wellbeing_scores import router as wellbeing_scores_router
 from app.api.wellbeing import router as wellbeing_router
 from app.api.insights import router as insights_router
+from app.api.analytics import router as analytics_router
 from app.config import settings
 from app.core.rate_limit import limiter
 
@@ -84,3 +85,4 @@ app.include_router(habit_logs_router)
 app.include_router(wellbeing_scores_router)
 app.include_router(wellbeing_router)
 app.include_router(insights_router)
+app.include_router(analytics_router)
