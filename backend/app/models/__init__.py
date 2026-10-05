@@ -5,6 +5,7 @@ from app.models.journal import Journal
 from app.models.journal_analysis import JournalAnalysis
 from app.models.user import User
 from app.models.wellbeing_score import WellBeingScore
+from app.models.insight_snapshot import InsightSnapshot
 
 __all__ = [
     "User",

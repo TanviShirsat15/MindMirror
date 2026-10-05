@@ -27,7 +27,8 @@ import Card from '../../components/ui/Card'
 import ChartContainer from '../../components/ui/ChartContainer'
 import { analyticsData } from '../../mock/analyticsData'
 import { habits, habitLogs } from '../../mock/habitData'
-import { insights } from '../../mock/insightData'
+import { apiGet } from '../../api/client'
+import type { GeneratedInsightsResponse } from '../../types/insight'
 import { journalEntries } from '../../mock/journalData'
 import { wellbeingScores } from '../../mock/wellbeingData'
 
@@ -39,6 +40,7 @@ interface HealthStatus {
 export default function DashboardPage() {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [generatedInsights, setGeneratedInsights] = useState<GeneratedInsightsResponse | null>(null)
 
   useEffect(() => {
     async function checkHealth() {
@@ -57,6 +59,10 @@ export default function DashboardPage() {
     }
 
     checkHealth()
+
+    apiGet<GeneratedInsightsResponse>('/api/insights/generated')
+      .then((data) => setGeneratedInsights(data))
+      .catch(() => {})
   }, [])
 
   const latestScore = wellbeingScores[wellbeingScores.length - 1]
@@ -75,7 +81,7 @@ export default function DashboardPage() {
       ? Math.round((completedLogs / totalLogs) * 100)
       : 0
 
-  const latestInsight = insights[0]
+  const latestInsight = generatedInsights?.insights[0]
 
   return (
     <div className="space-y-6">
@@ -440,15 +446,15 @@ export default function DashboardPage() {
 
               <div>
                 <Badge variant="info">
-                  {latestInsight.category}
+                  {latestInsight?.category}
                 </Badge>
 
                 <h3 className="mt-3 text-sm font-semibold text-slate-800">
-                  {latestInsight.title}
+                  {latestInsight?.title}
                 </h3>
 
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  {latestInsight.description}
+                  {latestInsight?.explanation ?? 'No explainable insight is available yet.'}
                 </p>
               </div>
             </div>
@@ -469,3 +475,5 @@ export default function DashboardPage() {
 function habitLogsForHabit(habitId: number) {
   return habitLogs.filter((log) => log.habit_id === habitId)
 }
+
+

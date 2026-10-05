@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.database import get_db
+from app.insights.insight_service import generate_insights
 from app.models.user import User
 from app.schemas.insight import (
     InsightCreate,
@@ -56,6 +59,45 @@ def get_insights(
 
 
 @router.get(
+    "/generated",
+)
+def get_generated_insights(
+    as_of: date | None = Query(
+        default=None,
+        description="Historical date used to generate insights.",
+    ),
+    category: str | None = Query(
+        default=None,
+        description="Optional insight category filter.",
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        result = generate_insights(
+            db=db,
+            current_user=current_user,
+            as_of=as_of,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    if category is not None:
+        result["insights"] = [
+            insight
+            for insight in result["insights"]
+            if insight.category.value == category
+        ]
+
+    
+
+    return result
+
+
+@router.get(
     "/{insight_id}",
     response_model=InsightRead,
 )
@@ -72,7 +114,7 @@ def get_insight_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
 
@@ -96,7 +138,7 @@ def update_insight_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
 
@@ -118,6 +160,6 @@ def delete_insight_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
