@@ -10,8 +10,11 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Input from '../../components/ui/Input'
+import { useAuth } from '../../auth/AuthContext'
 
 export default function ProfileSettingsPage() {
+  const { user } = useAuth()
+
   const [notifications, setNotifications] = useState(false)
   const [compactView, setCompactView] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -23,6 +26,9 @@ export default function ProfileSettingsPage() {
       setSaved(false)
     }, 2000)
   }
+
+  const displayName = user?.full_name?.trim() || 'Not provided'
+  const email = user?.email || 'Not available'
 
   return (
     <div className="space-y-6">
@@ -44,18 +50,18 @@ export default function ProfileSettingsPage() {
       {/* Profile */}
       <Card
         title="Profile Information"
-        description="Basic information for the current demo account."
+        description="Information associated with your authenticated MindMirror account."
       >
         <div className="grid gap-5 md:grid-cols-2">
           <Input
             label="Name"
-            value="Demo User"
+            value={displayName}
             readOnly
           />
 
           <Input
             label="Email"
-            value="demo@mindmirror.local"
+            value={email}
             readOnly
           />
         </div>
@@ -64,7 +70,7 @@ export default function ProfileSettingsPage() {
       {/* Preferences */}
       <Card
         title="Preferences"
-        description="These controls currently demonstrate frontend behavior only."
+        description="These interface preferences are currently managed for this session."
       >
         <div className="space-y-4">
           <PreferenceRow
@@ -101,7 +107,7 @@ export default function ProfileSettingsPage() {
       {/* Privacy */}
       <Card
         title="Privacy & Data"
-        description="Important information about the current application stage."
+        description="Information about how your MindMirror account data is handled."
       >
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-start gap-3">
@@ -109,24 +115,23 @@ export default function ProfileSettingsPage() {
 
             <div>
               <h3 className="text-sm font-semibold text-slate-800">
-                Your journal data is intended to remain private
+                Your journal data is associated with your account
               </h3>
 
               <p className="mt-1 text-sm leading-6 text-slate-500">
-                Production authentication, authorization, secure
-                persistence, and user-level data isolation will be
-                implemented in later phases.
+                MindMirror uses authenticated user access for protected
+                application data. Keep your account credentials private.
               </p>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Demo Notice */}
+      {/* Preference Notice */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <p className="text-xs leading-5 text-slate-500">
-          This Phase 3 screen uses frontend demo state only. Preferences
-          are not persisted to the database yet.
+          Notification and compact-view preferences are currently
+          frontend-only and are not persisted to the database.
         </p>
       </div>
     </div>
