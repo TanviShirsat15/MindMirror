@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.models.habit import Habit
@@ -67,17 +68,11 @@ def update_habit(
     habit_id: int,
     habit_data: HabitUpdate,
 ) -> Habit:
-    habit = (
-        db.query(Habit)
-        .filter(
-            Habit.id == habit_id,
-            Habit.user_id == current_user.id,
-        )
-        .first()
+    habit = get_habit(
+        db=db,
+        current_user=current_user,
+        habit_id=habit_id,
     )
-
-    if habit is None:
-        raise ValueError("Habit not found")
 
     if habit_data.name is not None:
         habit.name = habit_data.name
@@ -97,10 +92,7 @@ def update_habit(
             habit.deactivated_at = None
         else:
             habit.is_active = False
-            if habit.deactivated_at is None:
-                from datetime import datetime
-
-                habit.deactivated_at = datetime.utcnow()
+            habit.deactivated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(habit)
@@ -113,17 +105,11 @@ def delete_habit(
     current_user: User,
     habit_id: int,
 ) -> None:
-    habit = (
-        db.query(Habit)
-        .filter(
-            Habit.id == habit_id,
-            Habit.user_id == current_user.id,
-        )
-        .first()
+    habit = get_habit(
+        db=db,
+        current_user=current_user,
+        habit_id=habit_id,
     )
-
-    if habit is None:
-        raise ValueError("Habit not found")
 
     db.delete(habit)
     db.commit()
@@ -179,16 +165,12 @@ def get_habit_metrics(
     )
 
     # Current streak:
-    # If today is completed, count from today.
-    # Otherwise, count from yesterday.
+    # Start from the most recent completed day and count
+    # consecutive completed days backwards.
     current_streak = 0
 
     if completed_dates:
-        streak_date = (
-            today
-            if today in completed_dates
-            else today - timedelta(days=1)
-        )
+        streak_date = max(completed_dates)
 
         while streak_date in completed_dates:
             current_streak += 1

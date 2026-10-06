@@ -1,3 +1,9 @@
+from datetime import date
+
+
+TEST_DATE = date.today().isoformat()
+
+
 def register_and_login(client, email):
     password = "TestPassword123!"
 
@@ -39,7 +45,7 @@ def create_habit(client, headers):
     return response.json()["id"]
 
 
-def create_journal(client, headers, entry_date="2026-10-05"):
+def create_journal(client, headers, entry_date=TEST_DATE):
     response = client.post(
         "/api/journals",
         headers=headers,
@@ -67,7 +73,7 @@ def test_journal_creates_wellbeing_score(client):
     create_journal(client, headers)
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -75,7 +81,7 @@ def test_journal_creates_wellbeing_score(client):
 
     data = response.json()
 
-    assert data["date"] == "2026-10-05"
+    assert data["date"] == TEST_DATE
     assert 1 <= data["score"] <= 100
 
 
@@ -90,7 +96,7 @@ def test_missing_wellbeing_score_returns_404(client):
     }
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -111,7 +117,7 @@ def test_habit_completion_changes_wellbeing_score(client):
     create_journal(client, headers)
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -122,14 +128,14 @@ def test_habit_completion_changes_wellbeing_score(client):
         f"/api/habits/{habit_id}/complete",
         headers=headers,
         params={
-            "log_date": "2026-10-05",
+            "log_date": TEST_DATE,
         },
     )
 
     assert response.status_code == 200
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -142,14 +148,14 @@ def test_habit_completion_changes_wellbeing_score(client):
         f"/api/habits/{habit_id}/undo",
         headers=headers,
         params={
-            "log_date": "2026-10-05",
+            "log_date": TEST_DATE,
         },
     )
 
     assert response.status_code == 200
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -171,7 +177,7 @@ def test_deleting_last_journal_removes_wellbeing_score(client):
     journal_id = create_journal(client, headers)
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -185,7 +191,7 @@ def test_deleting_last_journal_removes_wellbeing_score(client):
     assert response.status_code == 204
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers,
     )
 
@@ -206,7 +212,7 @@ def test_wellbeing_score_is_user_isolated(client):
     create_journal(client, headers_a)
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers_a,
     )
 
@@ -222,7 +228,7 @@ def test_wellbeing_score_is_user_isolated(client):
     }
 
     response = client.get(
-        "/api/wellbeing/2026-10-05",
+        f"/api/wellbeing/{TEST_DATE}",
         headers=headers_b,
     )
 
