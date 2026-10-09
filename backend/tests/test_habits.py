@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 def register_and_login(client, email):
     password = "TestPassword123!"
 
@@ -257,24 +259,25 @@ def test_habit_metrics(client):
     )
 
     assert response.status_code == 201
-
     habit_id = response.json()["id"]
 
-    # Complete three days
-    for log_date in [
-        "2026-10-02",
-        "2026-10-03",
-        "2026-10-04",
-    ]:
+    # Complete three consecutive days before today
+    today = date.today()
+    log_dates = [
+        today - timedelta(days=3),
+        today - timedelta(days=2),
+        today - timedelta(days=1),
+    ]
+
+    for log_date in log_dates:
         response = client.post(
             f"/api/habits/{habit_id}/complete",
             headers=headers,
-            params={"log_date": log_date},
+            params={"log_date": log_date.isoformat()},
         )
-
         assert response.status_code == 200
 
-        # Weekly metrics
+    # Weekly metrics
     response = client.get(
         f"/api/habits/{habit_id}/metrics",
         headers=headers,
@@ -282,7 +285,6 @@ def test_habit_metrics(client):
     )
 
     assert response.status_code == 200
-
     metrics = response.json()
 
     assert metrics["window"] == "weekly"
@@ -300,12 +302,12 @@ def test_habit_metrics(client):
     )
 
     assert response.status_code == 200
-
     historical = response.json()
 
     assert historical["window"] == "historical"
     assert historical["completed_days"] == 0
     assert historical["longest_streak"] == 0
+
 
 def test_habit_cross_user_isolation(client):
     token_a = register_and_login(
