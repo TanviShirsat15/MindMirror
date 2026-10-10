@@ -378,7 +378,7 @@ export default function DashboardPage() {
 
     async function checkHealth() {
       try {
-        const response = await fetch('/api/health')
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/health`)
 
         if (!response.ok) {
           throw new Error(`HTTP error ${response.status}`)

@@ -1,3 +1,4 @@
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 const ACCESS_TOKEN_KEY = 'mindmirror_access_token'
 const UNAUTHORIZED_EVENT = 'mindmirror:unauthorized'
 
@@ -41,7 +42,7 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
   })
