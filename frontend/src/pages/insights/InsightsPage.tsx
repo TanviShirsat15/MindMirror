@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
@@ -77,6 +78,42 @@ function formatDate(value: string | null): string {
   })
 }
 
+function formatComparisonPeriod(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return 'Not available'
+  }
+
+  let period: unknown = value
+
+  if (typeof value === 'string') {
+    try {
+      period = JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+
+  if (
+    typeof period === 'object' &&
+    period !== null &&
+    'start' in period &&
+    'end' in period
+  ) {
+    const dates = period as {
+      start: string
+      end: string
+    }
+
+    return `${formatDate(dates.start)} – ${formatDate(dates.end)}`
+  }
+
+  if (typeof period === 'string' || typeof period === 'number') {
+    return String(period)
+  }
+
+  return 'Not available'
+}
+
 function formatDirection(direction: string): string {
   return direction
     .replace(/[-_]/g, ' ')
@@ -84,20 +121,12 @@ function formatDirection(direction: string): string {
 }
 
 function formatMetricValue(value: unknown): string {
-  if (typeof value === 'number') {
-    if (Number.isInteger(value)) {
-      return String(value)
-    }
-
-    return value.toFixed(2)
+  if (value === null || value === undefined) {
+    return '—'
   }
 
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No'
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
   }
 
   return String(value)
@@ -110,14 +139,14 @@ function getSupportingMetrics(
     ([key, value]) =>
       key !== 'threshold' &&
       value !== null &&
-      value !== undefined,
+      value !== undefined &&
+      typeof value !== 'object',
   )
 }
 
 export default function InsightsPage() {
-  const [data, setData] = useState<GeneratedInsightsResponse | null>(
-    null,
-  )
+  const [data, setData] =
+    useState<GeneratedInsightsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -140,9 +169,7 @@ export default function InsightsPage() {
           return
         }
 
-        setError(
-          'Insights could not be loaded. Please try again.',
-        )
+        setError('Insights could not be loaded. Please try again.')
       })
       .finally(() => {
         if (active) {
@@ -218,7 +245,7 @@ export default function InsightsPage() {
           description="Insights will appear as enough historical data becomes available."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4">
           {insights.map((insight) => (
             <InsightCard
               key={insight.insight_key}
@@ -285,7 +312,7 @@ function InsightCard({ insight }: InsightCardProps) {
   )
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="info">
@@ -293,9 +320,7 @@ function InsightCard({ insight }: InsightCardProps) {
           </Badge>
 
           {insight.is_new && (
-            <Badge variant="success">
-              New
-            </Badge>
+            <Badge variant="success">New</Badge>
           )}
         </div>
 
@@ -312,7 +337,7 @@ function InsightCard({ insight }: InsightCardProps) {
         {insight.explanation}
       </p>
 
-      <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Direction
@@ -340,35 +365,35 @@ function InsightCard({ insight }: InsightCardProps) {
             </p>
 
             <p className="mt-1 text-sm text-slate-700">
-              {insight.comparison_period}
+              {formatComparisonPeriod(insight.comparison_period)}
             </p>
           </div>
         )}
       </div>
 
       {supportingMetrics.length > 0 && (
-        <div className="mt-4 rounded-lg bg-slate-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Supporting information
+        <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Supporting Information
           </p>
 
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {supportingMetrics.map(([key, value]) => (
               <div
                 key={key}
-                className="flex items-center justify-between gap-3 text-sm"
+                className="rounded-lg bg-white p-3"
               >
-                <span className="text-slate-500">
+                <p className="text-sm text-slate-500">
                   {key
                     .replace(/[-_]/g, ' ')
                     .replace(/\b\w/g, (letter) =>
                       letter.toUpperCase(),
                     )}
-                </span>
+                </p>
 
-                <span className="font-medium text-slate-700">
+                <p className="mt-2 break-words text-xl font-semibold text-slate-800">
                   {formatMetricValue(value)}
-                </span>
+                </p>
               </div>
             ))}
           </div>

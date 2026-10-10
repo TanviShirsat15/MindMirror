@@ -296,40 +296,56 @@ export default function HabitsPage() {
     }
   }
 
-  const toggleCompletion = async (
-    habit: Habit,
-    date: string,
-    isCompleted: boolean,
-  ) => {
-    setUpdatingHabitId(habit.id)
-    setErrorMessage('')
 
-    try {
-      if (isCompleted) {
-        await apiPost<HabitLog>(
-          `/api/habits/${habit.id}/undo?log_date=${date}`,
-          {},
-        )
-      } else {
-        await apiPost<HabitLog>(
-          `/api/habits/${habit.id}/complete?log_date=${date}`,
-          {},
-        )
-      }
+const toggleCompletion = async (
+  habit: Habit,
+  date: string,
+  isCompleted: boolean,
+) => {
+  setUpdatingHabitId(habit.id)
+  setErrorMessage('')
 
-      await loadHabits()
-    } catch (error) {
-      if (error instanceof ApiError) {
-        setErrorMessage(error.message)
-      } else {
-        setErrorMessage(
-          'Unable to update completion. Please try again.',
-        )
-      }
-    } finally {
-      setUpdatingHabitId(null)
+  try {
+    if (isCompleted) {
+      await apiPost<HabitLog>(
+        `/api/habits/${habit.id}/undo?log_date=${date}`,
+        {},
+      )
+    } else {
+      await apiPost<HabitLog>(
+        `/api/habits/${habit.id}/complete?log_date=${date}`,
+        {},
+      )
     }
+
+    const [logs, metrics] = await Promise.all([
+      apiGet<HabitLog[]>(
+        `/api/habit-logs/${habit.id}?start_date=${recentDates[0]}&end_date=${recentDates[6]}`,
+      ),
+      apiGet<HabitMetrics>(
+        `/api/habits/${habit.id}/metrics?window=weekly`,
+      ),
+    ])
+
+    setHabits((currentHabits) =>
+      currentHabits.map((item) =>
+        item.id === habit.id
+          ? { ...item, logs, metrics }
+          : item,
+      ),
+    )
+  } catch (error) {
+    if (error instanceof ApiError) {
+      setErrorMessage(error.message)
+    } else {
+      setErrorMessage(
+        'Unable to update completion. Please try again.',
+      )
+    }
+  } finally {
+    setUpdatingHabitId(null)
   }
+}
 
   const activeHabits = habits.filter((habit) => habit.is_active)
   const inactiveHabits = habits.filter((habit) => !habit.is_active)

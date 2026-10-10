@@ -227,25 +227,27 @@ def generate_insights(
             as_of=as_of,
         )
 
+        title, explanation = render_insight(result)
+
         insights.append(
-            InsightResult(
-                insight_key=key,
-                category=result.category,
-                subject=result.subject,
-                title=render_insight(result)["title"],
-                explanation=render_insight(result)["explanation"],
-                direction=result.direction,
-                supporting_metrics=result.supporting_metrics,
-                comparison_period=result.comparison_period,
-                data_sufficiency=result.data_sufficiency,
-                sample_size=result.sample_size,
-                is_new=is_new,
-                first_generated_at=(
-                    snapshot.first_generated_at if snapshot else None
-                ),
-                generated_at=datetime.utcnow(),
-            )
-        )
+        InsightResult(
+        insight_key=key,
+        category=result.category,
+        subject=result.subject,
+        title=title,
+        explanation=explanation,
+        direction=result.direction,
+        supporting_metrics=result.supporting_metrics,
+        comparison_period=result.comparison_period,
+        data_sufficiency=result.data_sufficiency,
+        sample_size=result.sample_size,
+        is_new=is_new,
+        first_generated_at=(
+            snapshot.first_generated_at if snapshot else None
+        ),
+        generated_at=datetime.utcnow(),
+    )
+)
 
     return {
         "status": "success",
